@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>CampusLend</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: slim header, zone chips + search toolbar, responsive item grid; item detail opens as a two-column sheet (item and owner | calendar and rent). */
+:root{
+  --bg:#F1F4F6; --surface:#FFFFFF; --fg:#12202A; --muted:#566874; --line:#D8E0E5;
+  --accent:#0B7A83; --accent-fg:#FFFFFF; --accent-soft:#D6EEF0;
+  --range:#CFE9EC; --booked:#E6EBEE; --warn:#A8500A; --ok:#136F42; --scrim:rgba(10,20,26,.55);
+  --art-bg-l:89%; --art-fg-l:28%;
+  --f-display:'Space Grotesk',system-ui,sans-serif; --f-body:'Inter',system-ui,sans-serif; --f-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1418; --surface:#151F25; --fg:#E6EEF2; --muted:#92A4AF; --line:#25353F;
+  --accent:#4CC3CC; --accent-fg:#06272A; --accent-soft:#12333A;
+  --range:#16454B; --booked:#1B2930; --warn:#F0B25A; --ok:#5FD08F; --scrim:rgba(0,0,0,.65);
+  --art-bg-l:20%; --art-fg-l:72%; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1418; --surface:#151F25; --fg:#E6EEF2; --muted:#92A4AF; --line:#25353F;
+  --accent:#4CC3CC; --accent-fg:#06272A; --accent-soft:#12333A;
+  --range:#16454B; --booked:#1B2930; --warn:#F0B25A; --ok:#5FD08F; --scrim:rgba(0,0,0,.65);
+  --art-bg-l:20%; --art-fg-l:72%; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body.lock{overflow:hidden}
+.wrap{max-width:1120px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;line-height:1.15}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+
+header.top{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;margin-bottom:20px}
+.brand h1{font-size:clamp(1.7rem,4vw,2.3rem);font-weight:700;letter-spacing:-.02em}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);max-width:46ch}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600;display:inline-flex;gap:8px;align-items:center}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+.pill{background:var(--accent);color:var(--accent-fg);border-radius:99px;padding:0 7px;font-size:12px;min-width:20px;text-align:center}
+
+.toolbar{display:flex;flex-direction:column;gap:12px;margin-bottom:18px}
+.zones{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 13px;font-size:14px;font-weight:500;display:inline-flex;gap:7px;align-items:center}
+.chip small{color:var(--muted);font-size:12px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.chip[aria-pressed="true"] small{color:inherit;opacity:.85}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.field{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:9px 12px;font:inherit;min-width:0}
+input.field{flex:1 1 220px}
+.count{color:var(--muted);font-size:14px;margin-bottom:12px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.card{display:block;text-align:left;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+@media (prefers-reduced-motion:no-preference){.card{transition:transform .15s,border-color .15s}}
+.art{display:block;position:relative;aspect-ratio:8/5;max-width:100%;color:hsl(var(--h) 52% var(--art-fg-l));background:hsl(var(--h) 38% var(--art-bg-l))}
+.art svg{width:100%;height:100%;display:block}
+.zone-tag{position:absolute;left:10px;top:10px;background:var(--surface);color:var(--fg);font-size:12px;font-weight:600;border-radius:6px;padding:2px 8px}
+.cbody{display:block;padding:12px 14px 14px}
+.cbody .name{display:block;font-family:var(--f-display);font-weight:600;font-size:1.06rem;line-height:1.25}
+.cbody .meta{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.cfoot{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:12px;flex-wrap:wrap}
+.price{font-family:var(--f-display);font-weight:700;font-size:1.25rem}
+.price small{font-family:var(--f-body);font-weight:400;font-size:13px;color:var(--muted)}
+.avail{font-size:12.5px;font-weight:600}
+.avail.ok{color:var(--ok)} .avail.busy{color:var(--warn)}
+.empty{padding:40px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+
+footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
+
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.panel{background:var(--bg);border-radius:14px;width:100%;max-width:980px;margin:auto;border:1px solid var(--line);position:relative}
+.panel.narrow{max-width:620px}
+.phead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.phead h2{font-size:1.2rem}
+.x{border:1px solid var(--line);background:var(--surface);border-radius:8px;width:36px;height:36px;font-size:18px;line-height:1}
+.pbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;padding:18px}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.box h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px;font-weight:600}
+.big-art{border-radius:12px;overflow:hidden}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}
+dl.kv dt{color:var(--muted)} dl.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.inline-copy{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mini{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:2px 8px;font-size:12.5px;font-weight:600}
+.mini:hover{border-color:var(--accent)}
+
+.cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.cal-head strong{font-family:var(--f-display);font-size:1.05rem}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.dow{text-align:center;font-size:12px;color:var(--muted);padding:4px 0}
+.day{aspect-ratio:1/1;max-height:46px;border:1px solid transparent;background:transparent;border-radius:8px;font-variant-numeric:tabular-nums;font-size:14px;padding:0;position:relative}
+.day:hover:not([disabled]){border-color:var(--accent)}
+.day[disabled]{cursor:not-allowed;color:var(--muted);opacity:.5}
+.day.booked{background:var(--booked);text-decoration:line-through;opacity:1;color:var(--muted)}
+.day.today{border-color:var(--line);font-weight:700}
+.day.inr{background:var(--range);border-radius:3px}
+.day.edge{background:var(--accent);color:var(--accent-fg);font-weight:700;border-radius:8px;opacity:1}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.msg{min-height:1.4em;font-size:13.5px;color:var(--warn);margin-top:8px}
+
+.sum{display:grid;gap:6px}
+.sum .line{display:flex;justify-content:space-between;gap:12px}
+.sum .line span:first-child{color:var(--muted)}
+.sum .total{border-top:1px solid var(--line);padding-top:10px;margin-top:4px;align-items:baseline}
+.sum .total span:first-child{color:var(--fg);font-weight:600}
+.sum .total span:last-child{font-family:var(--f-display);font-size:1.7rem;font-weight:700}
+.hint{color:var(--muted);margin:0}
+
+.code-box{text-align:center;padding:22px 12px;background:var(--accent-soft);border:1px dashed var(--accent);border-radius:12px}
+.code{font-family:var(--f-mono);font-weight:700;font-size:clamp(1.6rem,7vw,2.4rem);letter-spacing:.06em;user-select:all;overflow-wrap:anywhere}
+ol.steps{margin:0;padding-left:20px;display:grid;gap:8px}
+.blist{display:grid;gap:12px;padding:18px}
+.bitem{display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center}
+.bitem .mono{font-weight:700}
+.verify{display:flex;gap:8px;flex-wrap:wrap}
+.verify input{flex:1 1 180px;font-family:var(--f-mono);text-transform:uppercase}
+
+@media (max-width:760px){
+  .pbody{grid-template-columns:minmax(0,1fr);padding:14px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Campus<span>Lend</span></h1>
+      <p>Borrow what a classmate already owns. Pick your dates, see the rent, and swap a booking code at handover.</p>
+    </div>
+    <button class="btn" id="mineBtn" type="button">My bookings <span class="pill" id="mineCount">0</span></button>
+  </header>
+
+  <section class="toolbar" aria-label="Filters">
+    <div class="zones" id="zones" role="group" aria-label="Filter by campus zone"></div>
+    <div class="row">
+      <input class="field" id="q" type="search" placeholder="Search items, e.g. guitar, tent, calculator" aria-label="Search items">
+      <label class="row" style="gap:8px">
+        <span style="color:var(--muted)">Sort</span>
+        <select class="field" id="sort">
+          <option value="rate-asc">Rent: low to high</option>
+          <option value="rate-desc">Rent: high to low</option>
+          <option value="name">Name A to Z</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <div class="count" id="count" aria-live="polite"></div>
+  <main class="grid" id="grid"></main>
+
+  <footer>Sample listings for demonstration. Rent is per calendar day, counting both the pickup and return day. Rent and deposit are settled in person at handover; bookings saved here stay in this browser.</footer>
+</div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="Item details"><div class="panel" id="panel"></div></div>
+
+<script>
+(function(){
+'use strict';
+const ZONES=[
+ {id:'north',name:'North Hostels',spot:'N-block reading lounge'},
+ {id:'south',name:'South Hostels',spot:'S-block common room'},
+ {id:'acad',name:'Academic Block',spot:'Main lobby by the notice board'},
+ {id:'lib',name:'Library',spot:'Library entrance steps'},
+ {id:'sports',name:'Sports Complex',spot:'Pavilion front desk'},
+ {id:'plaza',name:'Canteen Plaza',spot:'Canteen plaza, tree seating'}
+];
+const ITEMS=[
+ {id:1,name:'Hero Sprint bicycle',cat:'Transport',zone:'north',rate:60,dep:500,h:196,kind:'bike',owner:{n:'Aarav Mehta',w:'B.Tech CSE, 3rd year',p:'Room N-214',t:'+91 90000 10001',r:'Replies within an hour'},note:'21-gear, chain oiled last week. Lock included.',busy:[[2,4],[9,11]]},
+ {id:2,name:'Casio fx-991EX calculator',cat:'Academic',zone:'acad',rate:15,dep:200,h:28,kind:'calc',owner:{n:'Sneha Iyer',w:'B.Tech ECE, 2nd year',p:'Room S-108',t:'+91 90000 10002',r:'Replies in the evening'},note:'Allowed in most internal exams. Fresh batteries.',busy:[[0,1],[6,8]]},
+ {id:3,name:'4-person dome tent',cat:'Outdoor',zone:'sports',rate:120,dep:800,h:140,kind:'tent',owner:{n:'Rohan Verma',w:'MBA, 1st year',p:'Room N-305',t:'+91 90000 10003',r:'Replies within a day'},note:'Pegs and rain fly included. Packs into a shoulder bag.',busy:[[5,7]]},
+ {id:4,name:'Yamaha acoustic guitar',cat:'Music',zone:'south',rate:80,dep:600,h:24,kind:'guitar',owner:{n:'Ishita Rao',w:'B.Des, 2nd year',p:'Room S-221',t:'+91 90000 10004',r:'Replies within an hour'},note:'Steel strings, soft case and two picks.',busy:[[1,3],[12,14]]},
+ {id:5,name:'DSLR camera with 50mm lens',cat:'Photography',zone:'lib',rate:250,dep:2000,h:268,kind:'camera',owner:{n:'Kabir Singh',w:'M.Sc Media, 2nd year',p:'Room N-117',t:'+91 90000 10005',r:'Replies within an hour'},note:'Two batteries and a 64GB card. Handle with care.',busy:[[3,5],[10,12]]},
+ {id:6,name:'Portable HD projector',cat:'Electronics',zone:'acad',rate:200,dep:1500,h:312,kind:'projector',owner:{n:'Meera Nair',w:'Cultural Club secretary',p:'Room S-312',t:'+91 90000 10006',r:'Replies within a day'},note:'HDMI cable and remote included. Good for movie nights.',busy:[[7,8]]},
+ {id:7,name:'Badminton racket pair',cat:'Sports',zone:'sports',rate:30,dep:200,h:100,kind:'racket',owner:{n:'Dev Patel',w:'B.Tech Mech, 4th year',p:'Room N-402',t:'+91 90000 10007',r:'Replies within an hour'},note:'Two rackets and three shuttles.',busy:[[0,0],[4,5]]},
+ {id:8,name:'Mini fridge, 45 litre',cat:'Hostel',zone:'north',rate:90,dep:700,h:210,kind:'fridge',owner:{n:'Nikhil Joshi',w:'M.Tech, 1st year',p:'Room N-009',t:'+91 90000 10008',r:'Replies in the evening'},note:'Pickup needs two people. Rent covers the power.',busy:[[8,16]]},
+ {id:9,name:'Engineering drawing kit',cat:'Academic',zone:'lib',rate:20,dep:250,h:44,kind:'drafting',owner:{n:'Tanvi Kulkarni',w:'B.Tech Civil, 2nd year',p:'Room S-140',t:'+91 90000 10009',r:'Replies within a day'},note:'Set squares, compass, scale and mini drafter.',busy:[[2,3]]},
+ {id:10,name:'1.5L electric kettle',cat:'Hostel',zone:'plaza',rate:25,dep:300,h:352,kind:'kettle',owner:{n:'Farhan Ali',w:'B.Com, 3rd year',p:'Room N-230',t:'+91 90000 10010',r:'Replies within an hour'},note:'Auto switch-off. Good for chai and instant noodles.',busy:[[1,2],[5,5]]},
+ {id:11,name:'Navy formal blazer, M',cat:'Clothing',zone:'south',rate:70,dep:500,h:224,kind:'blazer',owner:{n:'Pranav Desai',w:'BBA, 3rd year',p:'Room S-199',t:'+91 90000 10011',r:'Replies in the evening'},note:'Dry cleaned. Fits chest 38 to 40 inches.',busy:[[3,4],[13,14]]},
+ {id:12,name:'20,000 mAh power bank',cat:'Electronics',zone:'plaza',rate:35,dep:400,h:172,kind:'power',owner:{n:'Ananya Gupta',w:'B.Sc Physics, 1st year',p:'Room S-020',t:'+91 90000 10012',r:'Replies within an hour'},note:'Fast charge, two USB ports and one Type-C.',busy:[[0,0],[6,7]]}
+];
+
+/* illustrations: simple line drawings, colored by the card's hue */
+const A={
+ bike:'<circle cx="95" cy="125" r="40"/><circle cx="225" cy="125" r="40"/><path d="M95 125L140 80H205L225 125M140 80L160 125H95M160 125L205 80M128 68h26M205 80L196 62h22"/>',
+ calc:'<rect x="110" y="28" width="100" height="144" rx="12"/><rect x="123" y="42" width="74" height="28" rx="4" fill="currentColor" fill-opacity=".25"/><g fill="currentColor" stroke="none"><circle cx="134" cy="96" r="6"/><circle cx="154" cy="96" r="6"/><circle cx="174" cy="96" r="6"/><circle cx="194" cy="96" r="6"/><circle cx="134" cy="118" r="6"/><circle cx="154" cy="118" r="6"/><circle cx="174" cy="118" r="6"/><circle cx="194" cy="118" r="6"/><circle cx="134" cy="140" r="6"/><circle cx="154" cy="140" r="6"/><circle cx="174" cy="140" r="6"/><circle cx="194" cy="140" r="6"/></g>',
+ tent:'<path d="M55 160L160 48L265 160Z" fill="currentColor" fill-opacity=".18"/><path d="M160 48V160M133 160L160 104L187 160M35 160H285"/>',
+ guitar:'<g transform="rotate(-40 160 100)"><ellipse cx="108" cy="126" rx="42" ry="35" fill="currentColor" fill-opacity=".18"/><circle cx="108" cy="126" r="10"/><rect x="146" y="119" width="102" height="14" rx="3"/><rect x="248" y="114" width="30" height="24" rx="5"/></g>',
+ camera:'<rect x="58" y="62" width="204" height="110" rx="14" fill="currentColor" fill-opacity=".14"/><rect x="118" y="44" width="60" height="20" rx="6"/><circle cx="160" cy="118" r="38"/><circle cx="160" cy="118" r="20"/><circle cx="232" cy="84" r="5" fill="currentColor"/>',
+ projector:'<rect x="48" y="84" width="224" height="70" rx="14" fill="currentColor" fill-opacity=".14"/><circle cx="214" cy="119" r="21"/><circle cx="214" cy="119" r="9"/><path d="M80 108h56M80 120h56M80 132h56M90 154v14M230 154v14"/>',
+ racket:'<g transform="rotate(32 160 100)"><ellipse cx="160" cy="64" rx="32" ry="44"/><path d="M160 20V108M128 64H192M134 40H186M134 88H186"/><path d="M160 108V176" stroke-width="7"/></g><g transform="rotate(-32 160 100)"><ellipse cx="160" cy="64" rx="32" ry="44" fill="currentColor" fill-opacity=".12"/><path d="M160 108V176" stroke-width="7"/></g><circle cx="262" cy="150" r="9" fill="currentColor"/>',
+ fridge:'<rect x="105" y="24" width="110" height="152" rx="10" fill="currentColor" fill-opacity=".14"/><path d="M105 88H215M196 44V68M196 106V138M122 176v8M198 176v8"/>',
+ drafting:'<path d="M60 162L60 48L186 162Z" fill="currentColor" fill-opacity=".14"/><path d="M86 142V98L136 142Z"/><rect x="200" y="36" width="30" height="132" rx="3"/><path d="M200 56h10M200 76h10M200 96h10M200 116h10M200 136h10M262 48L240 164M262 48L284 164"/>',
+ kettle:'<path d="M108 152L120 82H200L212 152Z" fill="currentColor" fill-opacity=".16"/><rect x="124" y="66" width="72" height="16" rx="6"/><circle cx="160" cy="58" r="6"/><path d="M210 104L246 78M120 94C66 94 68 142 112 142"/><rect x="98" y="152" width="124" height="14" rx="4"/>',
+ blazer:'<path d="M118 38L160 70L202 38L242 68L228 172H92L78 68Z" fill="currentColor" fill-opacity=".14"/><path d="M160 70V172M118 38L160 112L202 38"/><circle cx="160" cy="136" r="4" fill="currentColor"/><circle cx="160" cy="154" r="4" fill="currentColor"/>',
+ power:'<rect x="78" y="62" width="164" height="82" rx="14" fill="currentColor" fill-opacity=".14"/><rect x="242" y="92" width="16" height="22"/><g fill="currentColor" stroke="none"><rect x="98" y="84" width="22" height="38" rx="3"/><rect x="126" y="84" width="22" height="38" rx="3"/><rect x="154" y="84" width="22" height="38" rx="3" fill-opacity=".3"/></g><path d="M214 80L198 104H212L204 126"/>'
+};
+function art(it,cls){return '<span class="art '+(cls||'')+'" style="--h:'+it.h+'"><svg viewBox="0 0 320 200" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="'+esc(it.name)+'">'+A[it.kind]+'</svg>'+(cls==='big-art'?'':'<span class="zone-tag">'+zone(it.zone).name+'</span>')+'</span>';}
+
+/* helpers */
+const $=s=>document.querySelector(s);
+const zone=id=>ZONES.find(z=>z.id===id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const today=(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());})();
+const addDays=(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
+const key=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const fromKey=k=>{const p=k.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]);};
+const span=(a,b)=>Math.round((b-a)/864e5)+1;
+const fmt=(d,o)=>d.toLocaleDateString('en-IN',o||{day:'numeric',month:'short'});
+const fmtL=d=>d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+const inr=n=>'₹'+n.toLocaleString('en-IN');
+const MAXD=14;
+
+/* booked dates */
+const busySet={};
+ITEMS.forEach(it=>{const s=new Set();it.busy.forEach(r=>{for(let i=r[0];i<=r[1];i++)s.add(key(addDays(today,i)));});busySet[it.id]=s;});
+let mine=[];
+try{mine=JSON.parse(localStorage.getItem('campuslend.bookings')||'[]');}catch(e){mine=[];}
+if(!Array.isArray(mine))mine=[];
+function applyMine(){mine.forEach(b=>{const s=busySet[b.itemId];if(!s)return;for(let d=fromKey(b.start);d<=fromKey(b.end);d=addDays(d,1))s.add(key(d));});}
+applyMine();
+function save(){try{localStorage.setItem('campuslend.bookings',JSON.stringify(mine));}catch(e){}}
+function rangeBusy(it,a,b){for(let d=a;d<=b;d=addDays(d,1)){if(busySet[it.id].has(key(d)))return true;}return false;}
+function nextFree(it){for(let i=0;i<120;i++){const d=addDays(today,i);if(!busySet[it.id].has(key(d)))return i;}return 120;}
+
+/* catalog */
+let zoneF='all',query='',sortBy='rate-asc';
+function renderZones(){
+  const c=id=>ITEMS.filter(i=>id==='all'||i.zone===id).length;
+  const all=[{id:'all',name:'All zones'}].concat(ZONES);
+  $('#zones').innerHTML=all.map(z=>'<button type="button" class="chip" data-zone="'+z.id+'" aria-pressed="'+(zoneF===z.id)+'">'+esc(z.name)+' <small>'+c(z.id)+'</small></button>').join('');
+}
+function renderGrid(){
+  let list=ITEMS.filter(i=>(zoneF==='all'||i.zone===zoneF)&&(!query||(i.name+' '+i.cat+' '+i.owner.n).toLowerCase().includes(query)));
+  list.sort((a,b)=>sortBy==='name'?a.name.localeCompare(b.name):sortBy==='rate-desc'?b.rate-a.rate:a.rate-b.rate);
+  $('#count').textContent=list.length+(list.length===1?' item':' items')+(zoneF==='all'?' across campus':' in '+zone(zoneF).name);
+  if(!list.length){$('#grid').innerHTML='<div class="empty" style="grid-column:1/-1">No items match. Try another zone or clear the search.</div>';return;}
+  $('#grid').innerHTML=list.map(it=>{
+    const nf=nextFree(it);
+    const av=nf===0?'<span class="avail ok">Free today</span>':'<span class="avail busy">Free from '+fmt(addDays(today,nf))+'</span>';
+    return '<button type="button" class="card" data-item="'+it.id+'" aria-label="'+esc(it.name)+', '+inr(it.rate)+' per day">'+art(it)+
+      '<span class="cbody"><span class="name">'+esc(it.name)+'</span><span class="meta">'+esc(it.cat)+' · '+esc(it.owner.n)+', '+esc(it.owner.p)+'</span>'+
+      '<span class="cfoot"><span class="price">'+inr(it.rate)+'<small> /day</small></span>'+av+'</span></span></button>';
+  }).join('');
+}
+function renderMineCount(){$('#mineCount').textContent=mine.length;}
+
+/* sheet */
+const sheet=$('#sheet'),panel=$('#panel');
+let lastFocus=null;
+function openSheet(){lastFocus=document.activeElement;sheet.hidden=false;document.body.classList.add('lock');sheet.scrollTop=0;const x=panel.querySelector('.x');if(x)x.focus();}
+function closeSheet(){sheet.hidden=true;document.body.classList.remove('lock');if(lastFocus&&lastFocus.focus)lastFocus.focus();}
+const sel={item:null,start:null,end:null,month:null};
+
+function openItem(id){
+  const it=ITEMS.find(i=>i.id===id);sel.item=it;sel.start=null;sel.end=null;
+  const f=nextFree(it);sel.month=new Date(addDays(today,Math.min(f,120)).getFullYear(),addDays(today,Math.min(f,120)).getMonth(),1);
+  const z=zone(it.zone);
+  panel.className='panel';
+  panel.innerHTML='<div class="phead"><h2>'+esc(it.name)+'</h2><button class="x" type="button" data-close aria-label="Close">×</button></div>'+
+  '<div class="pbody"><div class="col">'+art(it,'big-art')+
+   '<div class="box"><h3>About this item</h3><p style="margin:0 0 10px">'+esc(it.note)+'</p>'+
+   '<dl class="kv"><dt>Category</dt><dd>'+esc(it.cat)+'</dd><dt>Daily rent</dt><dd class="num">'+inr(it.rate)+'</dd><dt>Deposit</dt><dd class="num">'+inr(it.dep)+' (returned on return)</dd></dl></div>'+
+   '<div class="box"><h3>Owner</h3><dl class="kv"><dt>Name</dt><dd>'+esc(it.owner.n)+'</dd><dt>Studies</dt><dd>'+esc(it.owner.w)+'</dd><dt>Stays at</dt><dd>'+esc(it.owner.p)+'</dd>'+
+   '<dt>Phone</dt><dd><span class="inline-copy"><span class="mono">'+esc(it.owner.t)+'</span><button class="mini" type="button" data-copy="'+esc(it.owner.t)+'">Copy</button></span></dd>'+
+   '<dt>Response</dt><dd>'+esc(it.owner.r)+'</dd><dt>Handover</dt><dd>'+esc(z.name)+', '+esc(z.spot)+'</dd></dl></div></div>'+
+  '<div class="col"><div class="box"><h3>Choose your dates</h3><div id="cal"></div><div class="msg" id="calmsg" aria-live="polite"></div></div>'+
+   '<div class="box"><h3>Your rent</h3><div id="sum"></div></div></div></div>';
+  drawCal();drawSum();openSheet();
+}
+
+function drawCal(){
+  const it=sel.item,m=sel.month,first=new Date(m.getFullYear(),m.getMonth(),1);
+  const lead=(first.getDay()+6)%7,dim=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
+  const curM=new Date(today.getFullYear(),today.getMonth(),1);
+  const canPrev=m>curM,canNext=(m.getFullYear()*12+m.getMonth())-(curM.getFullYear()*12+curM.getMonth())<6;
+  let h='<div class="cal-head"><button class="x" type="button" data-nav="-1" aria-label="Previous month"'+(canPrev?'':' disabled')+'>‹</button><strong>'+m.toLocaleDateString('en-IN',{month:'long',year:'numeric'})+'</strong><button class="x" type="button" data-nav="1" aria-label="Next month"'+(canNext?'':' disabled')+'>›</button></div><div class="cal-grid">';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>{h+='<div class="dow">'+d+'</div>';});
+  for(let i=0;i<lead;i++)h+='<div></div>';
+  for(let n=1;n<=dim;n++){
+    const d=new Date(m.getFullYear(),m.getMonth(),n),k=key(d);
+    const past=d<today,bk=busySet[it.id].has(k);
+    let c='day';if(key(d)===key(today))c+=' today';if(bk)c+=' booked';
+    const isS=sel.start&&k===key(sel.start),isE=sel.end&&k===key(sel.end);
+    if(isS||isE)c+=' edge';else if(sel.start&&sel.end&&d>sel.start&&d<sel.end)c+=' inr';
+    h+='<button type="button" class="'+c+'" data-day="'+k+'"'+((past||bk)?' disabled':'')+' aria-label="'+fmtL(d)+(bk?', booked':'')+'"'+((isS||isE)?' aria-pressed="true"':'')+'>'+n+'</button>';
+  }
+  h+='</div><div class="legend"><span><i style="background:var(--accent)"></i>Selected</span><span><i style="background:var(--range)"></i>In range</span><span><i style="background:var(--booked)"></i>Booked</span></div>';
+  $('#cal').innerHTML=h;
+}
+function setMsg(t){const e=$('#calmsg');if(e)e.textContent=t||'';}
+function pickDay(k){
+  const d=fromKey(k),it=sel.item;setMsg('');
+  if(!sel.start||sel.end){sel.start=d;sel.end=null;}
+  else if(d<sel.start){sel.start=d;}
+  else{
+    if(span(sel.start,d)>MAXD){setMsg('Rentals run up to '+MAXD+' days. Pick an earlier return date.');return;}
+    if(rangeBusy(it,sel.start,d)){setMsg('Someone has already booked a day in that range. Start again after the booked dates.');sel.start=d;sel.end=null;}
+    else sel.end=d;
+  }
+  drawCal();drawSum();
+}
+function total(){return sel.start&&sel.end?span(sel.start,sel.end)*sel.item.rate:0;}
+function drawSum(){
+  const it=sel.item,e=$('#sum');
+  if(!sel.start){e.innerHTML='<p class="hint">Tap a pickup date on the calendar, then a return date.</p>';return;}
+  if(!sel.end){e.innerHTML='<p class="hint">Pickup <strong>'+fmtL(sel.start)+'</strong>. Now tap the return date, or tap the same day for a one-day rental.</p>';return;}
+  const n=span(sel.start,sel.end),t=n*it.rate;
+  e.innerHTML='<div class="sum"><div class="line"><span>Pickup</span><span class="num">'+fmtL(sel.start)+'</span></div><div class="line"><span>Return</span><span class="num">'+fmtL(sel.end)+'</span></div>'+
+   '<div class="line"><span>Daily rent</span><span class="num">'+inr(it.rate)+' × '+n+(n===1?' day':' days')+'</span></div>'+
+   '<div class="line total"><span>Total rent</span><span class="num">'+inr(t)+'</span></div>'+
+   '<div class="line"><span>Refundable deposit</span><span class="num">'+inr(it.dep)+'</span></div>'+
+   '<div class="line"><span>Pay at handover</span><span class="num">'+inr(t+it.dep)+'</span></div></div>'+
+   '<button class="btn primary" type="button" id="confirm" style="width:100%;justify-content:center;margin-top:14px">Confirm and get booking code</button>';
+}
+
+/* booking code: CL-XXXX-YYYZ, Z is a checksum of the first seven characters */
+const AL='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function enc(n,len){let o='';for(let i=0;i<len;i++){o=AL[n%32]+o;n=Math.floor(n/32);}return o;}
+function checkChar(body){return AL[hash('cl|'+body)%32];}
+function makeCode(it,a,b){
+  const body=enc(hash(it.id+'|'+key(a)+'|'+key(b)),4);
+  const rnd=enc(Math.floor(Math.random()*32768),3);
+  return 'CL-'+body+'-'+rnd+checkChar(body+rnd);
+}
+function codeValid(c){const m=/^CL-([A-Z2-9]{4})-([A-Z2-9]{3})([A-Z2-9])$/.exec(c);return !!m&&AL.includes(m[1][0])&&checkChar(m[1]+m[2])===m[3];}
+
+function confirmBooking(){
+  const it=sel.item;if(!sel.start||!sel.end)return;
+  if(rangeBusy(it,sel.start,sel.end)){setMsg('Those dates were just taken. Pick again.');return;}
+  const b={code:makeCode(it,sel.start,sel.end),itemId:it.id,start:key(sel.start),end:key(sel.end),total:total(),made:key(today)};
+  mine.unshift(b);save();
+  for(let d=sel.start;d<=sel.end;d=addDays(d,1))busySet[it.id].add(key(d));
+  renderGrid();renderMineCount();showBooking(b);
+}
+function showBooking(b){
+  const it=ITEMS.find(i=>i.id===b.itemId),z=zone(it.zone),s=fromKey(b.start),e=fromKey(b.end),n=span(s,e);
+  panel.className='panel narrow';
+  panel.innerHTML='<div class="phead"><h2>Booking confirmed</h2><button class="x" type="button" data-close aria-label="Close">×</button></div>'+
+  '<div class="blist"><div class="code-box"><div style="color:var(--muted);font-size:13px;margin-bottom:6px">Your booking code</div><div class="code" id="codeText">'+b.code+'</div>'+
+   '<button class="btn" type="button" data-copy="'+b.code+'" style="margin-top:12px">Copy code</button></div>'+
+  '<div class="box"><dl class="kv"><dt>Item</dt><dd>'+esc(it.name)+'</dd><dt>Dates</dt><dd class="num">'+fmtL(s)+' to '+fmtL(e)+' ('+n+(n===1?' day':' days')+')</dd><dt>Total rent</dt><dd class="num">'+inr(b.total)+'</dd><dt>Deposit</dt><dd class="num">'+inr(it.dep)+', returned when you return the item</dd>'+
+   '<dt>Owner</dt><dd>'+esc(it.owner.n)+', '+esc(it.owner.p)+'</dd><dt>Phone</dt><dd><span class="inline-copy"><span class="mono">'+esc(it.owner.t)+'</span><button class="mini" type="button" data-copy="'+esc(it.owner.t)+'">Copy</button></span></dd>'+
+   '<dt>Meet at</dt><dd>'+esc(z.name)+', '+esc(z.spot)+'</dd></dl></div>'+
+  '<div class="box"><h3>At the exchange</h3><ol class="steps"><li>Message the owner, share this code and agree a time at the meeting point.</li><li>At pickup, the owner checks that your code matches their booking.</li><li>Check the item together, then pay the rent and deposit.</li><li>At return, say the code again. The owner confirms and gives back the deposit.</li></ol></div></div>';
+  openSheet();
+}
+
+/* my bookings */
+function showMine(){
+  panel.className='panel narrow';
+  let h='<div class="phead"><h2>My bookings</h2><button class="x" type="button" data-close aria-label="Close">×</button></div><div class="blist">';
+  if(!mine.length)h+='<div class="empty">No bookings yet. Pick an item and your dates to get a booking code.</div>';
+  mine.forEach((b,i)=>{
+    const it=ITEMS.find(x=>x.id===b.itemId);if(!it)return;
+    h+='<div class="box"><div class="bitem"><div><div class="mono" style="font-size:1.05rem">'+b.code+'</div><div>'+esc(it.name)+'</div><div style="color:var(--muted);font-size:13px" class="num">'+fmt(fromKey(b.start))+' to '+fmt(fromKey(b.end))+' · '+inr(b.total)+' rent</div></div>'+
+     '<div class="row" style="justify-content:flex-end"><button class="btn" type="button" data-view="'+i+'">View</button><button class="btn" type="button" data-cancel="'+i+'">Cancel</button></div></div></div>';
+  });
+  h+='<div class="box"><h3>Check a code</h3><p class="hint" style="margin-bottom:10px">Owners can paste the code a borrower gives them to check it is well formed and, on this device, whether it matches a booking.</p><div class="verify"><input class="field" id="vcode" placeholder="CL-XXXX-XXXX" maxlength="12" aria-label="Booking code"><button class="btn primary" type="button" id="vgo">Check</button></div><div id="vres" class="msg" style="color:var(--fg)" aria-live="polite"></div></div></div>';
+  panel.innerHTML=h;openSheet();
+}
+function verify(){
+  const c=$('#vcode').value.trim().toUpperCase(),r=$('#vres');
+  if(!codeValid(c)){r.style.color='var(--warn)';r.textContent='This code is not valid. Check for typos and ask the borrower to read it out again.';return;}
+  const b=mine.find(x=>x.code===c);
+  r.style.color='var(--ok)';
+  if(b){const it=ITEMS.find(x=>x.id===b.itemId);r.textContent='Valid. '+it.name+', '+fmt(fromKey(b.start))+' to '+fmt(fromKey(b.end))+', rent '+inr(b.total)+'.';}
+  else r.textContent='Valid format. This code is not stored in this browser, so confirm the dates with the borrower.';
+}
+
+/* copy with fallback */
+function copyText(t,btn){
+  const done=()=>{if(!btn)return;const o=btn.textContent;btn.textContent='Copied';setTimeout(()=>{btn.textContent=o;},1400);};
+  const fb=()=>{const el=document.getElementById('codeText');if(el){const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);}if(btn){const o=btn.textContent;btn.textContent='Select and copy';setTimeout(()=>{btn.textContent=o;},1800);}};
+  try{navigator.clipboard.writeText(t).then(done,fb);}catch(e){fb();}
+}
+
+/* events */
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest('button');
+  if(ev.target===sheet){closeSheet();return;}
+  if(!t)return;
+  if(t.dataset.zone){zoneF=t.dataset.zone;renderZones();renderGrid();}
+  else if(t.dataset.item){openItem(+t.dataset.item);}
+  else if(t.hasAttribute('data-close')){closeSheet();}
+  else if(t.dataset.nav){sel.month=new Date(sel.month.getFullYear(),sel.month.getMonth()+(+t.dataset.nav),1);drawCal();}
+  else if(t.dataset.day){pickDay(t.dataset.day);}
+  else if(t.id==='confirm'){confirmBooking();}
+  else if(t.dataset.copy){copyText(t.dataset.copy,t);}
+  else if(t.id==='mineBtn'){showMine();}
+  else if(t.dataset.view!==undefined){showBooking(mine[+t.dataset.view]);}
+  else if(t.dataset.cancel!==undefined){
+    const i=+t.dataset.cancel;
+    if(t.dataset.sure){const b=mine[i],s=busySet[b.itemId];for(let d=fromKey(b.start);d<=fromKey(b.end);d=addDays(d,1)){const k=key(d);const base=ITEMS.find(x=>x.id===b.itemId).busy.some(r=>d>=addDays(today,r[0])&&d<=addDays(today,r[1]));const other=mine.some((o,j)=>j!==i&&o.itemId===b.itemId&&k>=o.start&&k<=o.end);if(!base&&!other)s.delete(k);}mine.splice(i,1);save();renderGrid();renderMineCount();showMine();}
+    else{t.dataset.sure='1';t.textContent='Tap again to cancel';}
+  }
+  else if(t.id==='vgo'){verify();}
+});
+document.addEventListener('keydown',ev=>{
+  if(ev.key==='Escape'&&!sheet.hidden)closeSheet();
+  if(ev.key==='Enter'&&ev.target.id==='vcode')verify();
+});
+$('#q').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();renderGrid();});
+$('#sort').addEventListener('change',e=>{sortBy=e.target.value;renderGrid();});
+
+renderZones();renderGrid();renderMineCount();
+})();
+</script>
+
+</body>
+</html>
